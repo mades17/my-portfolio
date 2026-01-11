@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>建築CGパース制作 ハマキタデザイン</title>
+    <meta name="description" content="建築パース・CGパース制作、Unreal Engine 5によるアニメーション制作。ハマキタデザイン。">
+    
+    <!-- Tailwind CSS (スタイリング用) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons (アイコン用) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* 基本設定 */
+        body {
+            background-color: #0c0a09; /* bg-stone-950 */
+            color: #f5f5f4; /* text-stone-100 */
+            margin: 0;
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+        }
+        
+        /* スクロールバーのデザイン */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1c1917; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #44403c; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #ea580c; 
+        }
+
+        /* アニメーション用クラス */
+        .fade-section {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 1s ease-out, transform 1s ease-out;
+        }
+        .fade-section.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* 画像ホバー時のオーバーレイアニメーション */
+        .showcase-item .overlay {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .showcase-item:hover .overlay {
+            opacity: 1;
+        }
+        .showcase-item img {
+            transition: transform 0.5s ease;
+        }
+        .showcase-item:hover img {
+            transform: scale(1.05);
+        }
+
+        /* 動画サムネイルのプレイボタンアニメーション */
+        .play-button {
+            transition: transform 0.3s ease;
+        }
+        .video-card:hover .play-button {
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body class="bg-stone-950 text-stone-100 font-sans selection:bg-orange-500 selection:text-white">
+
+    <!-- 画像拡大モーダル -->
+    <div id="image-modal" class="fixed inset-0 z-[100] bg-black/95 hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <button id="modal-close" class="absolute top-6 right-6 text-stone-400 hover:text-white transition-colors bg-black/50 p-2 rounded-full">
+            <i data-lucide="x" class="w-8 h-8"></i>
+        </button>
+        <div class="max-w-5xl w-full" id="modal-content">
+            <img id="modal-image" src="" alt="Enlarged View" class="w-full max-h-[85vh] object-contain rounded shadow-2xl mx-auto">
+            <p class="text-center text-stone-400 mt-4 font-light tracking-widest uppercase">
+                <span id="modal-category"></span> - <span id="modal-title" class="text-white font-medium"></span>
+            </p>
+        </div>
+    </div>
+
+    <!-- ヘッダー -->
+    <header id="main-header" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 py-6 bg-transparent">
+        <div class="container mx-auto px-6 flex justify-between items-center">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
+                <div class="w-8 h-8 bg-orange-600 rounded-sm flex items-center justify-center">
+                    <span class="text-white font-bold text-lg">H</span>
+                </div>
+                <h1 class="text-xl md:text-2xl font-light tracking-widest text-white">
+                    HAMAKITA <span class="font-bold">DESIGN</span>
+                </h1>
+            </div>
+
+            <!-- デスクトップナビ -->
+            <nav class="hidden md:flex gap-8 text-sm tracking-widest font-medium">
+                <button onclick="scrollToSection('services')" class="hover:text-orange-500 transition-colors uppercase relative group">
+                    Services
+                    <span class="absolute -bottom-1 left-0 w-0 h-0.5 bg-orange-500 transition-all group-hover:w-full"></span>
+                </button>
+                <button onclick="scrollToSection('pricing')" class="hover:text-orange-500 transition-colors uppercase relative group">
+                    Pricing
+                    <span class="absolute -bottom-1 left-0 w-0 h-0.5 bg-orange-500 transition-all group-hover:w-full"></span>
+                </button>
+                <button onclick="scrollToSection('showcase')" class="hover:text-orange-500 transition-colors uppercase relative group">
+                    Showcase
+                    <span class="absolute -bottom-1 left-0 w-0 h-0.5 bg-orange-500 transition-all group-hover:w-full"></span>
+                </button>
+                <button onclick="scrollToSection('contact')" class="hover:text-orange-500 transition-colors uppercase relative group">
+                    Contact
+                    <span class="absolute -bottom-1 left-0 w-0 h-0.5 bg-orange-500 transition-all group-hover:w-full"></span>
+                </button>
+            </nav>
+
+            <!-- モバイルメニューボタン -->
+            <button id="menu-toggle" class="md:hidden text-white z-50 relative">
+                <i data-lucide="menu" class="w-7 h-7"></i>
+            </button>
+        </div>
+
+        <!-- モバイルメニューオーバーレイ -->
+        <div id="mobile-menu" class="fixed inset-0 bg-stone-950 z-40 flex flex-col items-center justify-center gap-8 transition-transform duration-300 translate-x-full md:hidden">
+            <button onclick="scrollToSection('services')" class="text-2xl font-light tracking-widest hover:text-orange-500 uppercase">Services</button>
+            <button onclick="scrollToSection('pricing')" class="text-2xl font-light tracking-widest hover:text-orange-500 uppercase">Pricing</button>
+            <button onclick="scrollToSection('showcase')" class="text-2xl font-light tracking-widest hover:text-orange-500 uppercase">Showcase</button>
+            <button onclick="scrollToSection('contact')" class="text-2xl font-light tracking-widest hover:text-orange-500 uppercase">Contact</button>
+        </div>
+    </header>
+
+    <!-- ヒーローセクション -->
+    <section class="relative h-screen flex items-center justify-center overflow-hidden">
+        <div class="absolute inset-0 z-0">
+            <!-- Googleドライブの画像を埋め込み -->
+            <img src="https://drive.google.com/uc?export=view&id=1vbqhHqdMV0VpojdSfhNTsge3vQ3C8XGN" alt="Hero Background" class="w-full h-full object-cover opacity-60">
+            <div class="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/50 to-transparent"></div>
+        </div>
+
+        <div class="container mx-auto px-6 relative z-10 text-center mt-16 fade-section">
+            <h2 class="text-base md:text-lg text-orange-500 tracking-[0.3em] uppercase mb-4 font-medium">
+                Architectural Visualization
+            </h2>
+            <h3 class="text-4xl md:text-7xl font-bold mb-8 leading-tight tracking-tight">
+                Visualizing<br/>
+                Your <span class="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">Vision.</span>
+            </h3>
+            <p class="max-w-2xl mx-auto text-stone-300 text-lg md:text-xl mb-10 font-light leading-relaxed">
+                建築外観・内観パース、Unreal Engine 5によるアニメーション。<br class="hidden md:block"/>
+                あなたのデザインを、空気感まで伝わるリアリティで視覚化します。
+            </p>
+            <div class="flex flex-col md:flex-row gap-4 justify-center">
+                <button onclick="scrollToSection('contact')" class="bg-orange-600 hover:bg-orange-700 text-white px-8 py-4 rounded-full font-medium transition-all shadow-lg hover:shadow-orange-900/50 flex items-center justify-center gap-2 group">
+                    お問い合わせ
+                    <i data-lucide="chevron-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
+                </button>
+                <button onclick="scrollToSection('showcase')" class="bg-transparent border border-stone-600 hover:border-white text-white px-8 py-4 rounded-full font-medium transition-all">
+                    制作実績を見る
+                </button>
+            </div>
+        </div>
+        
+        <div class="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce text-stone-500">
+            <i data-lucide="arrow-up" class="w-6 h-6 rotate-180"></i>
+        </div>
+    </section>
+
+    <!-- Services Section -->
+    <section id="services" class="py-24 bg-stone-950">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-16 fade-section">
+                <h2 class="text-orange-500 tracking-[0.2em] uppercase text-sm font-bold mb-2">Our Services</h2>
+                <h3 class="text-3xl md:text-4xl font-bold">事業内容</h3>
+                <div class="w-16 h-1 bg-orange-600 mx-auto mt-6"></div>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Service 1 -->
+                <div class="fade-section delay-100 h-full" onclick="scrollToSection('showcase')">
+                    <div class="bg-stone-900 rounded-2xl overflow-hidden hover:-translate-y-2 transition-transform duration-300 border border-stone-800 hover:border-orange-500/50 group h-full cursor-pointer">
+                        <div class="h-48 overflow-hidden relative">
+                            <img src="https://drive.google.com/file/d/1d7e9HEhScBkwF_lgwQ0W6FCC-cTKGVLB/view?usp=sharing
+"Exterior" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"/>
+                            <div class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></div>
+                            <div class="absolute bottom-4 left-4 bg-orange-600 p-2 rounded-lg text-white">
+                                <i data-lucide="home" class="w-6 h-6"></i>
+                            </div>
+                            <div class="absolute top-4 right-4 bg-black/50 p-1.5 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+                        <div class="p-8">
+                            <h4 class="text-xl font-bold mb-3 flex items-center gap-2 group-hover:text-orange-500 transition-colors">建築CGパース制作</h4>
+                            <p class="text-stone-400 text-sm leading-relaxed">
+                                戸建住宅、集合住宅、商業施設などの外観・内観パースを制作します。図面一枚から、完成予想図をフォトリアルに描き出します。<br/>
+                                <span class="text-orange-500 text-xs font-bold mt-2 inline-block">実績を見る →</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Service 2 -->
+                <div class="fade-section delay-200 h-full" onclick="scrollToSection('showcase-videos')">
+                    <div class="bg-stone-900 rounded-2xl overflow-hidden hover:-translate-y-2 transition-transform duration-300 border border-stone-800 hover:border-orange-500/50 group h-full cursor-pointer">
+                        <div class="h-48 overflow-hidden relative">
+                            <img src="https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?q=80&w=800&auto=format&fit=crop" alt="Animation" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"/>
+                            <div class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></div>
+                            <div class="absolute bottom-4 left-4 bg-orange-600 p-2 rounded-lg text-white">
+                                <i data-lucide="monitor" class="w-6 h-6"></i>
+                            </div>
+                            <div class="absolute top-4 right-4 bg-black/50 p-1.5 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                <i data-lucide="arrow-up" class="w-4 h-4 rotate-180"></i>
+                            </div>
+                        </div>
+                        <div class="p-8">
+                            <h4 class="text-xl font-bold mb-3 flex items-center gap-2 group-hover:text-orange-500 transition-colors">CGアニメーション (UE5)</h4>
+                            <p class="text-stone-400 text-sm leading-relaxed">
+                                Unreal Engine 5を使用した高品質なウォークスルー動画制作。光の表現や素材の質感をリアルタイムレンダリング技術で表現します。<br/>
+                                <span class="text-orange-500 text-xs font-bold mt-2 inline-block">サンプル動画を見る →</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Service 3 -->
+                <div class="fade-section delay-300 h-full" onclick="scrollToSection('showcase')">
+                    <div class="bg-stone-900 rounded-2xl overflow-hidden hover:-translate-y-2 transition-transform duration-300 border border-stone-800 hover:border-orange-500/50 group h-full cursor-pointer">
+                        <div class="h-48 overflow-hidden relative">
+                            <img src="https://images.unsplash.com/photo-1628744448840-55bdb2497bd4?q=80&w=800&auto=format&fit=crop" alt="AI Planning" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"/>
+                            <div class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors"></div>
+                            <div class="absolute bottom-4 left-4 bg-orange-600 p-2 rounded-lg text-white">
+                                <i data-lucide="layers" class="w-6 h-6"></i>
+                            </div>
+                            <div class="absolute top-4 right-4 bg-black/50 p-1.5 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+                        <div class="p-8">
+                            <h4 class="text-xl font-bold mb-3 flex items-center gap-2 group-hover:text-orange-500 transition-colors">AIイメージプラン・デザイン</h4>
+                            <p class="text-stone-400 text-sm leading-relaxed">
+                                最新のAI技術を活用したイメージプランの提案や、インテリアコーディネートの提案など、デザインの初期段階からサポートします。<br/>
+                                <span class="text-orange-500 text-xs font-bold mt-2 inline-block">実績を見る →</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="py-24 bg-stone-900 relative">
+        <div class="container mx-auto px-6 relative z-10">
+            <div class="text-center mb-16 fade-section">
+                <h2 class="text-orange-500 tracking-[0.2em] uppercase text-sm font-bold mb-2">Price List</h2>
+                <h3 class="text-3xl md:text-4xl font-bold">制作料金目安</h3>
+                <p class="text-stone-400 mt-4">ご予算に合わせた柔軟な提案も可能です</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Plan 1 -->
+                <div class="fade-section delay-100 h-full">
+                    <div class="bg-stone-950 p-8 rounded-2xl border border-stone-800 hover:border-orange-500 transition-all text-center h-full flex flex-col items-center justify-center group">
+                        <div class="text-stone-500 group-hover:text-orange-500 transition-colors mb-4">
+                            <i data-lucide="home" class="w-8 h-8"></i>
+                        </div>
+                        <h4 class="text-lg font-bold mb-2">住宅パース（外観）</h4>
+                        <p class="text-xs text-stone-500 mb-4">1棟あたり〜</p>
+                        <p class="text-3xl font-bold text-white mb-2">¥40,000<span class="text-sm font-normal text-stone-400">〜</span></p>
+                    </div>
+                </div>
+                <!-- Plan 2 -->
+                <div class="fade-section delay-200 h-full">
+                    <div class="bg-stone-950 p-8 rounded-2xl border border-stone-800 hover:border-orange-500 transition-all text-center h-full flex flex-col items-center justify-center group">
+                        <div class="text-stone-500 group-hover:text-orange-500 transition-colors mb-4">
+                            <i data-lucide="camera" class="w-8 h-8"></i>
+                        </div>
+                        <h4 class="text-lg font-bold mb-2">内観CGパース</h4>
+                        <p class="text-xs text-stone-500 mb-4">1部屋あたり〜</p>
+                        <p class="text-3xl font-bold text-white mb-2">¥50,000<span class="text-sm font-normal text-stone-400">〜</span></p>
+                    </div>
+                </div>
+                <!-- Plan 3 -->
+                <div class="fade-section delay-300 h-full">
+                    <div class="bg-stone-950 p-8 rounded-2xl border border-stone-800 hover:border-orange-500 transition-all text-center h-full flex flex-col items-center justify-center group">
+                        <div class="text-stone-500 group-hover:text-orange-500 transition-colors mb-4">
+                            <i data-lucide="monitor" class="w-8 h-8"></i>
+                        </div>
+                        <h4 class="text-lg font-bold mb-2">CGアニメーション</h4>
+                        <p class="text-xs text-stone-500 mb-4">内観ウォークスルー等</p>
+                        <p class="text-3xl font-bold text-white mb-2">¥100,000<span class="text-sm font-normal text-stone-400">〜</span></p>
+                    </div>
+                </div>
+                <!-- Plan 4 -->
+                <div class="fade-section delay-400 h-full">
+                    <div class="bg-stone-950 p-8 rounded-2xl border border-stone-800 hover:border-orange-500 transition-all text-center h-full flex flex-col items-center justify-center group">
+                        <div class="text-stone-500 group-hover:text-orange-500 transition-colors mb-4">
+                            <i data-lucide="building" class="w-8 h-8"></i>
+                        </div>
+                        <h4 class="text-lg font-bold mb-2">中規模・集合住宅</h4>
+                        <p class="text-xs text-stone-500 mb-4">規模により変動</p>
+                        <p class="text-3xl font-bold text-white mb-2">¥100,000<span class="text-sm font-normal text-stone-400">〜</span></p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-12 text-center fade-section">
+                <p class="text-stone-400 text-sm bg-stone-950/50 inline-block px-6 py-3 rounded-full border border-stone-800">
+                    ※別アングル追加は基本カットの半額にて承ります。詳細はお見積りをご依頼ください。
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Showcase Section -->
+    <section id="showcase" class="py-24 bg-stone-950">
+        <div class="container mx-auto px-6">
+            <div class="flex flex-col md:flex-row justify-between items-end mb-12 fade-section">
+                <div>
+                    <h2 class="text-orange-500 tracking-[0.2em] uppercase text-sm font-bold mb-2">Showcase</h2>
+                    <h3 class="text-3xl md:text-4xl font-bold">制作実績</h3>
+                </div>
+                <p class="text-stone-400 mt-4 md:mt-0 text-sm md:text-right max-w-md">
+                    CGを感じさせないナチュラルな風合いと、<br/>
+                    フォトリアリスティックな描画技術。<br/>
+                    <span class="text-orange-500 text-xs">※画像クリックで拡大表示</span>
+                </p>
+            </div>
+
+            <!-- Image Grid Generator (JSで生成) -->
+            <div id="showcase-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-[200px] mb-24">
+                <!-- JSでコンテンツを注入 -->
+            </div>
+
+            <!-- Video Section -->
+            <div id="showcase-videos" class="pt-12">
+                <div class="fade-section">
+                    <div class="flex items-center gap-4 mb-8">
+                        <div class="h-px bg-stone-800 flex-grow"></div>
+                        <h3 class="text-2xl font-bold flex items-center gap-2">
+                            <i data-lucide="monitor" class="text-orange-600 w-7 h-7"></i>
+                            Movies
+                        </h3>
+                        <div class="h-px bg-stone-800 flex-grow"></div>
+                    </div>
+                </div>
+
+                <div id="video-grid" class="grid md:grid-cols-2 gap-8">
+                    <!-- JSでコンテンツを注入 -->
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="py-24 bg-gradient-to-br from-stone-900 to-black relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-96 h-96 bg-orange-600/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        
+        <div class="container mx-auto px-6 relative z-10">
+            <div class="max-w-4xl mx-auto bg-stone-950/50 backdrop-blur-lg border border-stone-800 rounded-3xl p-8 md:p-16 text-center fade-section">
+                <h2 class="text-orange-500 tracking-[0.2em] uppercase text-sm font-bold mb-4">Contact Us</h2>
+                <h3 class="text-3xl md:text-5xl font-bold mb-8">お問い合わせ</h3>
+                <p class="text-stone-300 mb-12 leading-relaxed">
+                    建築パースの制作依頼、お見積り、ご相談など、<br/>
+                    日本全国どこからでもお気軽にご連絡ください。
+                </p>
+
+                <div class="grid md:grid-cols-2 gap-8 mb-12">
+                    <a href="tel:047-404-8665" class="flex flex-col items-center p-6 rounded-2xl bg-stone-900 hover:bg-stone-800 transition-colors border border-stone-800 group">
+                        <div class="w-12 h-12 rounded-full bg-stone-800 flex items-center justify-center mb-4 group-hover:bg-orange-600 transition-colors text-white">
+                            <i data-lucide="phone" class="w-5 h-5"></i>
+                        </div>
+                        <span class="text-stone-400 text-sm mb-1">お電話でのお問い合わせ</span>
+                        <span class="text-xl md:text-2xl font-bold text-white tracking-wider">047-404-8665</span>
+                        <span class="text-xs text-stone-500 mt-2">10:00-19:00 (土日祝除く)</span>
+                    </a>
+
+                    <a href="mailto:hama_design@live.jp" class="flex flex-col items-center p-6 rounded-2xl bg-stone-900 hover:bg-stone-800 transition-colors border border-stone-800 group">
+                        <div class="w-12 h-12 rounded-full bg-stone-800 flex items-center justify-center mb-4 group-hover:bg-orange-600 transition-colors text-white">
+                            <i data-lucide="mail" class="w-5 h-5"></i>
+                        </div>
+                        <span class="text-stone-400 text-sm mb-1">メールでのお問い合わせ</span>
+                        <span class="text-xl md:text-2xl font-bold text-white tracking-wider">hama_design@live.jp</span>
+                        <span class="text-xs text-stone-500 mt-2">24時間受付</span>
+                    </a>
+                </div>
+
+                <a href="https://form.run/@hama-design-82S4xLuugRg1nI7lQq7N" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 bg-white text-black px-10 py-4 rounded-full font-bold hover:bg-orange-500 hover:text-white transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-orange-500/50">
+                    お問い合わせフォームへ
+                    <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-stone-950 border-t border-stone-900 pt-16 pb-8">
+        <div class="container mx-auto px-6">
+            <div class="grid md:grid-cols-2 gap-12 mb-12">
+                <div>
+                    <div class="flex items-center gap-2 mb-6">
+                        <div class="w-6 h-6 bg-orange-600 rounded-sm flex items-center justify-center">
+                            <span class="text-white font-bold text-xs">H</span>
+                        </div>
+                        <h2 class="text-xl font-light tracking-widest text-white">
+                            HAMAKITA <span class="font-bold">DESIGN</span>
+                        </h2>
+                    </div>
+                    <p class="text-stone-500 text-sm leading-relaxed">
+                        ハマキタデザイン<br/>
+                        代表：濱北 章<br/>
+                        建築CGパース制作 / CGアニメーション / AIイメージプラン
+                    </p>
+                </div>
+                <div class="flex items-start gap-4 text-stone-400">
+                    <i data-lucide="map-pin" class="text-orange-600 w-6 h-6 flex-shrink-0 mt-1"></i>
+                    <div>
+                        <p class="font-bold text-white mb-1">Address</p>
+                        <p class="text-sm">
+                            〒274-0816<br/>
+                            千葉県船橋市芝山 2-5-11-305
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="border-t border-stone-900 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+                <p class="text-stone-600 text-xs">
+                    &copy; <span id="year"></span> Hamakita Design. All rights reserved.
+                </p>
+                <div class="flex gap-6">
+                    <button onclick="scrollToSection('services')" class="text-xs text-stone-600 hover:text-orange-500 transition-colors">Services</button>
+                    <button onclick="scrollToSection('pricing')" class="text-xs text-stone-600 hover:text-orange-500 transition-colors">Pricing</button>
+                    <button onclick="scrollToSection('showcase')" class="text-xs text-stone-600 hover:text-orange-500 transition-colors">Showcase</button>
+                    <button onclick="scrollToSection('contact')" class="text-xs text-stone-600 hover:text-orange-500 transition-colors">Contact</button>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- スクリプトの読み込み -->
+    <script src="script.js"></script>
+</body>
+</html>
